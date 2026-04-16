@@ -9,7 +9,13 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from .core import ProcessConfig, QRMode, process_workbook
+if __package__ in (None, ""):
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from upi_qr_add.core import ProcessConfig, QRMode, process_workbook
+else:
+    from .core import ProcessConfig, QRMode, process_workbook
 
 app = typer.Typer(add_completion=False, no_args_is_help=False)
 console = Console()
