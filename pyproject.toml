@@ -14,6 +14,7 @@ authors = [
 dependencies = [
   "typer[all]>=0.12.3",
   "rich>=13.7.1",
+  "prompt_toolkit>=3.0.47",
   "openpyxl>=3.1.2",
   "qrcode[pil]>=7.4.2",
   "Pillow>=10.3.0",
@@ -34,7 +35,7 @@ where = ["."]
 include = ["upi_qr_add*"]
 
 [tool.setuptools.package-data]
-upi_qr_add = ["assets/*.png"]
+upi_qr_add = ["assets/*.png", "assets/*.db"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
