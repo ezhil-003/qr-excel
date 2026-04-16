@@ -131,7 +131,7 @@ def test_missing_amount_column_raises_clear_error(tmp_path: Path) -> None:
         db_path=tmp_path / "missing_col.db",
     )
 
-    with pytest.raises(ValueError, match='Missing required "Amount" column'):
+    with pytest.raises(ValueError, match="Missing required amount column"):
         process_workbook(input_file, config)
 
 
@@ -174,3 +174,40 @@ def test_resume_after_interruption_uses_checkpoint(tmp_path: Path) -> None:
     conn.close()
     assert checkpoint is not None
     assert checkpoint[0] == 4
+
+
+def test_second_row_header_and_first_sheet_only(tmp_path: Path) -> None:
+    input_file = tmp_path / "multi_sheet.xlsx"
+
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = "FirstSheet"
+    ws1.append(["Invoice export summary title"])
+    ws1.append(["Customer", "Balance_Amount(Rs)"])
+    ws1.append(["A", 111.25])
+    ws1.append(["B", 222.75])
+
+    ws2 = wb.create_sheet("SecondSheet")
+    ws2.append(["Amount"])
+    ws2.append([9999])  # Should be ignored because only first sheet is processed.
+    wb.save(input_file)
+
+    config = ProcessConfig(
+        vpa="merchant@okaxis",
+        payee_name="Demo",
+        mode=QRMode.EMBED,
+        db_path=tmp_path / "first_sheet.db",
+    )
+
+    summary = process_workbook(input_file, config)
+    assert summary.total_rows == 2
+    assert summary.successful == 2
+    assert summary.failed_total == 0
+
+    output_wb = load_workbook(summary.output_file)
+    out_ws1 = output_wb["FirstSheet"]
+    out_ws2 = output_wb["SecondSheet"]
+
+    assert out_ws1.cell(row=2, column=3).value == "payment_qr"
+    assert len(out_ws1._images) == 2
+    assert out_ws2.max_column == 1

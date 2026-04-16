@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -13,11 +14,44 @@ def normalize_header(value: Any) -> str:
     return str(value).strip().casefold()
 
 
-def find_header_index(ws: Worksheet, header_name: str) -> int | None:
+def canonical_header(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "", normalize_header(value))
+
+
+def find_header_index(ws: Worksheet, header_name: str, *, row: int = 1) -> int | None:
     target = header_name.strip().casefold()
     for col in range(1, ws.max_column + 1):
-        if normalize_header(ws.cell(row=1, column=col).value) == target:
+        if normalize_header(ws.cell(row=row, column=col).value) == target:
             return col
+    return None
+
+
+def detect_amount_header(
+    ws: Worksheet,
+    *,
+    max_scan_rows: int = 25,
+) -> tuple[int, int, str] | None:
+    """
+    Detect amount-like column headers in the top rows.
+
+    Returns: (header_row, amount_col, matched_header_text)
+    """
+
+    accepted = {
+        "amount",
+        "balanceamount",
+        "balanceamountrs",
+    }
+
+    scan_until = min(max_scan_rows, ws.max_row)
+    for row_idx in range(1, scan_until + 1):
+        for col_idx in range(1, ws.max_column + 1):
+            value = ws.cell(row=row_idx, column=col_idx).value
+            header_text = normalize_header(value)
+            if not header_text:
+                continue
+            if canonical_header(header_text) in accepted:
+                return row_idx, col_idx, str(value).strip()
     return None
 
 

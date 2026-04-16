@@ -17,6 +17,7 @@ from .qr_generator import create_decorated_qr_image
 from .utils import (
     build_upi_deep_link,
     checkpoint_key,
+    detect_amount_header,
     find_header_index,
     output_excel_path,
     parse_amount,
@@ -89,16 +90,22 @@ def process_workbook(
         copied_fresh = True
 
     wb = load_workbook(workbook_path)
-    ws = wb.active
+    if not wb.worksheets:
+        raise ValueError("Workbook has no worksheets.")
+    ws = wb.worksheets[0]
 
-    amount_col = find_header_index(ws, "Amount")
-    if amount_col is None:
-        raise ValueError('Missing required "Amount" column.')
+    amount_header = detect_amount_header(ws)
+    if amount_header is None:
+        raise ValueError(
+            'Missing required amount column. Expected header like "Amount" '
+            'or "Balance_Amount(Rs)" within first 25 rows.'
+        )
+    header_row, amount_col, _matched_header = amount_header
 
-    qr_col = find_header_index(ws, "payment_qr")
+    qr_col = find_header_index(ws, "payment_qr", row=header_row)
     if qr_col is None:
         qr_col = ws.max_column + 1
-        ws.cell(row=1, column=qr_col, value="payment_qr")
+        ws.cell(row=header_row, column=qr_col, value="payment_qr")
 
     qr_col_letter = get_column_letter(qr_col)
     ws.column_dimensions[qr_col_letter].width = max(
@@ -121,8 +128,8 @@ def process_workbook(
             last_successful_row = 1
 
         resumed_from = last_successful_row if last_successful_row > 1 else None
-        start_row = max(2, last_successful_row + 1)
-        total_rows = max(ws.max_row - 1, 0)
+        start_row = max(header_row + 1, last_successful_row + 1)
+        total_rows = max(ws.max_row - header_row, 0)
 
         temp_dir = output_path.parent / f".{output_path.stem}_tmp_qr"
         hyper_dir = output_path.parent / f"{output_path.stem}_qr_images"
