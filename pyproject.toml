@@ -22,9 +22,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ezhil-003/qr-convert"
-Changelog = "https://github.com/ezhil-003/qr-convert/blob/main/upi_qr_add/CHANGELOG.md"
-"Code of Conduct" = "https://github.com/ezhil-003/qr-convert/blob/main/upi_qr_add/CODE_OF_CONDUCT.md"
+Homepage = "https://github.com/ezhil-003/qr-excel"
+Changelog = "https://github.com/ezhil-003/qr-excel/blob/main/upi_qr_add/CHANGELOG.md"
+"Code of Conduct" = "https://github.com/ezhil-003/qr-excel/blob/main/upi_qr_add/CODE_OF_CONDUCT.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.2.0"]
