@@ -4,8 +4,8 @@
 `upi-qr-add` is an interactive CLI tool designed to batch-process Excel files and add decorated UPI QR codes to each row. It supports embedding images directly in cells and provides robust session management with SQLite-based checkpointing and error logging.
 
 ## Core Technology Stack
-- **CLI Framework**: `typer` for command layout and `rich` for UI formatting.
-- **Interactivity**: `prompt_toolkit` for arrow-key menus and interactive inputs.
+- **CLI Framework**: `typer` for command layout.
+- **Interactivity**: `prompt_toolkit` for arrow-key menus, ASCII Dot-Highlighter inputs, and interactive configuration.
 - **Excel Handling**: `openpyxl` for reading/writing `.xlsx` files and embedding images.
 - **QR Generation**: `qrcode` for engine and `Pillow` for image decoration (overlays, resizing).
 - **Session/Logging**: `sqlite3` for persistent session logs and error tracking.
@@ -54,7 +54,8 @@ pytest -s
 ## Coding Style & Guidelines
 - **Type Hints**: Use type hints for all functions (`def func(a: int) -> str:`).
 - **Error Handling**: Wrap processing loops in try-except; log detailed errors to the session DB via `logger.py`.
-- **UI Consistency**: Use `rich` for all console output (tables, panels, colors).
+- **UI Consistency**: The application relies on custom ASCII UI styles (Dot-Highlighter menus, ASCII summary text) with minimal `rich` support for legacy error printing. Avoid full-blown `rich` Panel/Table layouts for standard summaries for an aesthetic ASCII feel.
+- **Domain Logic**: Account for both **Static VPA** and **Custom Billing** modes (dynamic VPA construction per row) in `core.py` and `main.py`. Always prompt for specific variables when in Custom Billing mode (prefix, suffix, column).
 - **Concurrency**: The tool is primarily single-threaded to ensure `openpyxl` stability during image embedding.
 - **Assets**: Always refer to assets using absolute paths derived in `utils.py` or `main.py` to ensure package portability.
 - **Interruption**: Gracefully handle `SIGINT` (Ctrl+C) via Typer/prompt_toolkit to ensure the session DB is closed and user progress can be resumed.

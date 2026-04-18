@@ -20,6 +20,19 @@
 - Main-menu error viewer for row-level and session-level failures.
 
 ## Installation
+### Windows (via Winget)
+
+If you need Python, install it first using winget:
+```bash
+winget install Python.Python.3.12
+```
+
+Then install the package and dependencies:
+```bash
+pip install -e .
+```
+
+### macOS / Linux
 
 From the project root:
 
@@ -41,19 +54,31 @@ When you run `upi-qr-add`, use the arrow-key menu:
 2. `View Last Run Errors`
 3. `Quit`
 
-For each input step, the CLI displays rules + example before prompting:
+### Working Pattern & Modes
 
+The CLI supports two primary VPA (UPI ID) generation modes:
+
+**1. Custom Billing Account (Dynamic VPA)**
+- Ideal for spreadsheets where each row has a different billing account.
+- The tool dynamically constructs the VPA for each row by taking a base prefix, appending the value from a specified column in the Excel row, and appending a suffix.
+- It also dynamically fetches the Payee Name from another column in the row.
+- Example: Prefix `merchant.`, Column `AccountID` (row value `1234`), Suffix `@okbiz` -> `merchant.1234@okbiz`.
+
+**2. Static VPA**
+- Uses a unified VPA and Payee Name for the entire spreadsheet.
+
+For each input step, the CLI displays rules + examples before prompting:
 - Input Excel path (`.xlsx`)
-- Merchant VPA (UPI ID)
-- Payee Name
+- Billing Setup (Custom vs Static)
 - Transaction Note (default: `Payment for order`)
-- QR mode (embed/hyperlink)
+- QR Output Mode:
+  - **Embed**: Embeds the generated image directly in an Excel cell (default and recommended).
+  - **Hyperlink**: Saves image files in a subfolder and adds clickable links in Excel.
 
 Output file is auto-created beside input:
-
 `original_filename_with_qr.xlsx`
 
-During processing, press `Ctrl+C` to interrupt safely and return to menu. Checkpoint + logs are preserved for resume.
+During processing, an interactive Dot-Highlighter ASCII menu displays progress. Press `Ctrl+C` to interrupt safely and return to the menu. Checkpoints + logs are preserved for resume.
 
 ## Runtime Session DB
 
