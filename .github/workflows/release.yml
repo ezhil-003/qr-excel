@@ -1,0 +1,80 @@
+name: Build and Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: upi-qr-add
+            asset_name: upi-qr-add-linux-amd64
+          - os: macos-latest
+            artifact_name: upi-qr-add
+            asset_name: upi-qr-add-macos-universal
+          - os: windows-latest
+            artifact_name: upi-qr-add.exe
+            asset_name: upi-qr-add-windows-amd64.exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller upi-qr-add.spec
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: dist/${{ matrix.artifact_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare assets for release
+        run: |
+          mkdir -p release_assets
+          # Move and rename downloaded artifacts
+          mv artifacts/upi-qr-add-linux-amd64/upi-qr-add release_assets/upi-qr-add-linux-amd64
+          mv artifacts/upi-qr-add-macos-universal/upi-qr-add release_assets/upi-qr-add-macos-universal
+          mv artifacts/upi-qr-add-windows-amd64.exe/upi-qr-add.exe release_assets/upi-qr-add-windows-amd64.exe
+          
+          # Make linux/macos binaries executable
+          chmod +x release_assets/upi-qr-add-linux-amd64
+          chmod +x release_assets/upi-qr-add-macos-universal
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
+          generate_release_notes: true

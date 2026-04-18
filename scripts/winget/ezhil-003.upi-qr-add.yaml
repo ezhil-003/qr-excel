@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+PackageIdentifier: ezhil-003.upi-qr-add
+PackageVersion: <VERSION> # Example: 0.1.1
+PackageName: upi-qr-add
+Publisher: ezhil-003
+License: MIT
+ShortDescription: Interactive CLI tool for adding decorated UPI QR codes to Excel rows.
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/ezhil-003/qr-excel/releases/download/<VERSION>/upi-qr-add-windows-amd64.exe
+    InstallerSha256: <GENERATE_SHA256_HASH_OF_THE_EXE_FILE>
+    InstallerType: portable
+    Commands:
+      - upi-qr-add
+ManifestType: singleton
+ManifestVersion: 1.6.0

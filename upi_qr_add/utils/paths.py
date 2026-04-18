@@ -7,12 +7,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+import sys
+
+def get_base_path() -> Path:
+    """Get the base path for assets, supporting PyInstaller's _MEIPASS."""
+    if hasattr(sys, '_MEIPASS'):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
+
+
 def default_logo_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "assets" / "upi_logo.png"
+    return get_base_path() / "assets" / "upi_logo.png"
 
 
 def template_db_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "assets" / "upi_qr_template.db"
+    return get_base_path() / "assets" / "upi_qr_template.db"
 
 
 def app_runtime_dir() -> Path:

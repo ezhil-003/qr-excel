@@ -20,28 +20,31 @@
 - Main-menu error viewer for row-level and session-level failures.
 
 ## Installation
-### Windows (via Winget)
 
+### One-Line Install (macOS / Linux)
+The fastest way to install the latest standalone binary:
+```bash
+curl -sL https://raw.githubusercontent.com/ezhil-003/qr-excel/main/scripts/install.sh | bash
+```
+
+### Manual Binary Download
+Download the standalone executable for your platform from the [GitHub Releases](https://github.com/ezhil-003/qr-excel/releases) page. No Python installation required!
+
+### Developer / Python Install
+If you prefer to run it via Python:
+
+#### Windows (via Winget)
 If you need Python, install it first using winget:
 ```bash
 winget install Python.Python.3.12
 ```
 
-Then install the package and dependencies:
-```bash
-pip install -e .
-```
-
-### macOS / Linux
-
-From the project root:
-
+#### From Project Root (macOS / Linux / Windows)
 ```bash
 pip install -e .
 ```
 
 Then run:
-
 ```bash
 upi-qr-add
 ```
