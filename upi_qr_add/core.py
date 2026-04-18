@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -29,14 +29,28 @@ class QRMode(str, Enum):
     HYPERLINK = "hyperlink"
 
 
+class BillingMode(str, Enum):
+    STATIC = "static"
+    CUSTOM = "custom"
+
+
 @dataclass(slots=True)
 class ProcessConfig:
-    vpa: str
-    payee_name: str
+    # --- Common ---
     note: str = "Payment for order"
     mode: QRMode = QRMode.EMBED
     logo_path: Path | None = None
     db_path: Path = Path("upi_qr_log.db")
+    billing_mode: BillingMode = BillingMode.CUSTOM
+
+    # --- Static billing (single merchant) ---
+    vpa: str = ""
+    payee_name: str = ""
+
+    # --- Custom billing (per-row UPI ID from Excel column) ---
+    vpa_prefix: str = ""
+    vpa_suffix: str = ""
+    vpa_middle_col_name: str = ""
 
 
 @dataclass(slots=True)
@@ -122,6 +136,15 @@ def process_workbook(
                 )
             header_row, amount_col, _matched_header = amount_header
 
+            # --- Resolve custom billing columns ---
+            vpa_middle_col: int | None = None
+            if config.billing_mode == BillingMode.CUSTOM:
+                vpa_middle_col = find_header_index(ws, config.vpa_middle_col_name, row=header_row)
+                if vpa_middle_col is None:
+                    raise ValueError(
+                        f'VPA middle column "{config.vpa_middle_col_name}" not found in header row {header_row}.'
+                    )
+
             qr_col = find_header_index(ws, "payment_qr", row=header_row)
             if qr_col is None:
                 qr_col = ws.max_column + 1
@@ -176,12 +199,22 @@ def process_workbook(
                         )
                         continue
 
+                    # --- Resolve VPA and payee name ---
+                    if config.billing_mode == BillingMode.CUSTOM:
+                        raw_middle = ws.cell(row=row_idx, column=vpa_middle_col).value  # type: ignore[arg-type]
+                        middle = str(raw_middle).strip() if raw_middle is not None else ""
+                        row_vpa = f"{config.vpa_prefix}{middle}{config.vpa_suffix}"
+                    else:
+                        row_vpa = config.vpa
+
+                    row_payee_name = config.payee_name
+
                     txn_id = str(uuid4())
                     current_step = "generate_upi_url"
                     try:
                         upi_url = build_upi_deep_link(
-                            vpa=config.vpa,
-                            payee_name=config.payee_name,
+                            vpa=row_vpa,
+                            payee_name=row_payee_name,
                             amount=parsed_amount,
                             txn_id=txn_id,
                             note=config.note,

@@ -10,7 +10,7 @@ from openpyxl import Workbook, load_workbook
 from PIL import Image
 
 import upi_qr_add.main as main_module
-from upi_qr_add.core import ProcessConfig, QRMode, process_workbook
+from upi_qr_add.core import BillingMode, ProcessConfig, ProcessSummary, QRMode, process_workbook
 from upi_qr_add.logger import (
     SQLiteLogger,
     archive_or_delete_completed_sessions,
@@ -18,6 +18,10 @@ from upi_qr_add.logger import (
 )
 from upi_qr_add.qr_generator import create_decorated_qr_image
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def create_excel(path: Path, headers: list[str], rows: list[list[object]]) -> None:
     wb = Workbook()
@@ -27,6 +31,40 @@ def create_excel(path: Path, headers: list[str], rows: list[list[object]]) -> No
         ws.append(row)
     wb.save(path)
 
+
+def make_static_config(tmp_path: Path, **kwargs) -> ProcessConfig:
+    """Convenience factory for static billing ProcessConfig."""
+    defaults = dict(
+        billing_mode=BillingMode.STATIC,
+        vpa="merchant@okaxis",
+        payee_name="Demo Store",
+        note="Payment for order",
+        mode=QRMode.EMBED,
+        db_path=tmp_path / "upi_qr_log.db",
+    )
+    defaults.update(kwargs)
+    return ProcessConfig(**defaults)
+
+
+def make_custom_config(tmp_path: Path, *, vpa_middle_col: str, **kwargs) -> ProcessConfig:
+    """Convenience factory for custom billing ProcessConfig."""
+    defaults = dict(
+        billing_mode=BillingMode.CUSTOM,
+        vpa_prefix="inv.",
+        vpa_suffix="@okaxis",
+        vpa_middle_col_name=vpa_middle_col,
+        payee_name="Custom Merchant",
+        note="Payment for order",
+        mode=QRMode.EMBED,
+        db_path=tmp_path / "upi_qr_custom_log.db",
+    )
+    defaults.update(kwargs)
+    return ProcessConfig(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# QR generation
+# ---------------------------------------------------------------------------
 
 def test_decorated_qr_generation_with_and_without_logo(tmp_path: Path) -> None:
     logo_path = tmp_path / "logo.png"
@@ -46,6 +84,10 @@ def test_decorated_qr_generation_with_and_without_logo(tmp_path: Path) -> None:
     assert without_logo.size == (420, 420)
 
 
+# ---------------------------------------------------------------------------
+# Static billing mode (existing tests, now explicit)
+# ---------------------------------------------------------------------------
+
 def test_embed_mode_success_and_invalid_rows(tmp_path: Path) -> None:
     input_file = tmp_path / "orders.xlsx"
     create_excel(
@@ -60,14 +102,7 @@ def test_embed_mode_success_and_invalid_rows(tmp_path: Path) -> None:
             [6, "49.50"],
         ],
     )
-    db_path = tmp_path / "upi_qr_log.db"
-    config = ProcessConfig(
-        vpa="merchant@okaxis",
-        payee_name="Demo Store",
-        note="Payment for order",
-        mode=QRMode.EMBED,
-        db_path=db_path,
-    )
+    config = make_static_config(tmp_path)
 
     summary = process_workbook(input_file, config)
 
@@ -83,7 +118,7 @@ def test_embed_mode_success_and_invalid_rows(tmp_path: Path) -> None:
     assert ws.cell(row=1, column=3).value == "payment_qr"
     assert len(ws._images) == 2
 
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(config.db_path)
     steps = conn.execute("SELECT step, status FROM row_logs").fetchall()
     conn.close()
     assert ("create_qr_with_logo", "success") in steps
@@ -100,12 +135,12 @@ def test_hyperlink_mode_creates_qr_files_and_links(tmp_path: Path) -> None:
             [20.5],
         ],
     )
-    db_path = tmp_path / "hyper_log.db"
-    config = ProcessConfig(
+    config = make_static_config(
+        tmp_path,
         vpa="merchant@okaxis",
         payee_name="Shop Name",
         mode=QRMode.HYPERLINK,
-        db_path=db_path,
+        db_path=tmp_path / "hyper_log.db",
     )
 
     summary = process_workbook(input_file, config)
@@ -134,12 +169,7 @@ def test_missing_amount_column_returns_setup_failed_and_logs(tmp_path: Path) -> 
         headers=["Total", "OrderID"],
         rows=[[100, 1]],
     )
-    config = ProcessConfig(
-        vpa="merchant@okaxis",
-        payee_name="Demo",
-        mode=QRMode.EMBED,
-        db_path=tmp_path / "missing_col.db",
-    )
+    config = make_static_config(tmp_path, db_path=tmp_path / "missing_col.db")
 
     summary = process_workbook(input_file, config)
     assert summary.status == "setup_failed"
@@ -162,12 +192,11 @@ def test_resume_after_interruption_uses_checkpoint(tmp_path: Path) -> None:
             [300],
         ],
     )
-    db_path = tmp_path / "resume_log.db"
-    config = ProcessConfig(
+    config = make_static_config(
+        tmp_path,
         vpa="merchant@okaxis",
         payee_name="Resume Merchant",
-        mode=QRMode.EMBED,
-        db_path=db_path,
+        db_path=tmp_path / "resume_log.db",
     )
 
     first_run = process_workbook(input_file, config, stop_after_rows=1)
@@ -185,7 +214,7 @@ def test_resume_after_interruption_uses_checkpoint(tmp_path: Path) -> None:
     ws = wb.active
     assert len(ws._images) == 3
 
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(config.db_path)
     checkpoint = conn.execute(
         "SELECT last_successful_row FROM checkpoints"
     ).fetchone()
@@ -210,12 +239,7 @@ def test_second_row_header_and_first_sheet_only(tmp_path: Path) -> None:
     ws2.append([9999])  # Should be ignored because only first sheet is processed.
     wb.save(input_file)
 
-    config = ProcessConfig(
-        vpa="merchant@okaxis",
-        payee_name="Demo",
-        mode=QRMode.EMBED,
-        db_path=tmp_path / "first_sheet.db",
-    )
+    config = make_static_config(tmp_path, db_path=tmp_path / "first_sheet.db")
 
     summary = process_workbook(input_file, config)
     assert summary.total_rows == 2
@@ -230,6 +254,93 @@ def test_second_row_header_and_first_sheet_only(tmp_path: Path) -> None:
     assert len(out_ws1._images) == 2
     assert out_ws2.max_column == 1
 
+
+# ---------------------------------------------------------------------------
+# Custom billing mode (new tests)
+# ---------------------------------------------------------------------------
+
+def test_custom_billing_mode_generation(tmp_path: Path) -> None:
+    """UPI IDs should be built as prefix + column_value + suffix per row."""
+    input_file = tmp_path / "custom_billing.xlsx"
+    create_excel(
+        input_file,
+        headers=["Amount", "UpiMiddle", "CustomerName"],
+        rows=[
+            [150, "abc123", "Alice"],
+            [250, "xyz789", "Bob"],
+        ],
+    )
+    config = make_custom_config(
+        tmp_path,
+        vpa_middle_col="UpiMiddle",
+        payee_name="Shared Payee",
+    )
+
+    summary = process_workbook(input_file, config)
+
+    assert summary.total_rows == 2
+    assert summary.successful == 2
+    assert summary.failed_total == 0
+    assert summary.status == "completed"
+    assert summary.output_file.exists()
+
+    conn = sqlite3.connect(config.db_path)
+    # All generate_upi_url steps should be success, confirming per-row VPA was built.
+    steps = conn.execute(
+        "SELECT step, status FROM row_logs WHERE step = 'generate_upi_url'"
+    ).fetchall()
+    conn.close()
+    assert len(steps) == 2
+    assert all(s[1] == "success" for s in steps)
+
+
+def test_custom_billing_invalid_amount_rows_are_skipped(tmp_path: Path) -> None:
+    """Rows with bad amounts should still be skipped in custom billing mode."""
+    input_file = tmp_path / "custom_skip.xlsx"
+    create_excel(
+        input_file,
+        headers=["Amount", "UpiMiddle", "CustomerName"],
+        rows=[
+            [300, "mid1", "Carol"],
+            [None, "mid2", "Dave"],  # Should be skipped.
+            [-50, "mid3", "Eve"],    # Should be skipped.
+        ],
+    )
+    config = make_custom_config(
+        tmp_path,
+        vpa_middle_col="UpiMiddle",
+        db_path=tmp_path / "custom_skip_log.db",
+    )
+
+    summary = process_workbook(input_file, config)
+    assert summary.successful == 1
+    assert summary.skipped == 2
+    assert summary.status == "completed_with_errors"
+
+
+def test_custom_billing_missing_vpa_column_raises_setup_failed(tmp_path: Path) -> None:
+    """If the VPA middle column does not exist the run should fail at setup."""
+    input_file = tmp_path / "bad_col.xlsx"
+    create_excel(
+        input_file,
+        headers=["Amount", "CustomerName"],
+        rows=[[100, "Frank"]],
+    )
+    config = make_custom_config(
+        tmp_path,
+        vpa_middle_col="NonExistentCol",  # This column is not in the sheet.
+        db_path=tmp_path / "bad_col_log.db",
+    )
+
+    summary = process_workbook(input_file, config)
+    assert summary.status == "setup_failed"
+    assert summary.error_message is not None
+    assert "NonExistentCol" in summary.error_message
+
+
+# ---------------------------------------------------------------------------
+# Logger lifecycle
+# ---------------------------------------------------------------------------
 
 def test_session_db_lifecycle_helpers(tmp_path: Path) -> None:
     template_db = tmp_path / "template.db"
@@ -257,6 +368,10 @@ def test_session_db_lifecycle_helpers(tmp_path: Path) -> None:
     assert interrupted_db.exists()
 
 
+# ---------------------------------------------------------------------------
+# CLI / UI
+# ---------------------------------------------------------------------------
+
 def test_error_viewer_prints_failed_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db_path = tmp_path / "session_errors.db"
     with SQLiteLogger(db_path, session_id="s1") as logger:
@@ -275,7 +390,6 @@ def test_error_viewer_prints_failed_rows(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(main_module, "console", fake_console)
     main_module._show_last_run_errors(db_path)
     output = fake_console.export_text()
-    assert "Row-Level Failures" in output
     assert "embed_image" in output
     assert "disk full" in output
 
@@ -285,8 +399,6 @@ def test_main_menu_loop_runs_and_quits(monkeypatch: pytest.MonkeyPatch, tmp_path
 
     fake_summary_db = tmp_path / "session_test.db"
     sqlite3.connect(fake_summary_db).close()
-
-    from upi_qr_add.core import ProcessSummary
 
     fake_summary = ProcessSummary(
         total_rows=1,

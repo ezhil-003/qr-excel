@@ -1,0 +1,12 @@
+upi-qr-add==0.1.0
+
+typer[all]>=0.12.3
+rich>=13.7.1
+prompt_toolkit>=3.0.47
+openpyxl>=3.1.2
+qrcode[pil]>=7.4.2
+Pillow>=10.3.0
+tqdm>=4.66.4
+
+# Development dependencies
+pytest>=8.2.0
