@@ -1,3 +1,5 @@
+"""SQLite-backed session logging, checkpoint tracking, and session lifecycle management."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -5,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
-from .utils import app_sessions_dir, session_db_path, template_db_path
+from ..utils.paths import app_sessions_dir, session_db_path, template_db_path
 
 
 FINAL_STATUSES = {"completed", "completed_with_errors", "setup_failed"}
@@ -20,7 +22,9 @@ class SQLiteLogger:
     ) -> None:
         self.db_path = Path(db_path).expanduser().resolve()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.db_path)
+        self._conn = sqlite3.connect(self.db_path, timeout=10)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self._conn.row_factory = sqlite3.Row
         self._init_schema()
         self.session_id = self._ensure_session_state(session_id)
@@ -222,7 +226,8 @@ class SQLiteLogger:
                 error_message,
             ),
         )
-        self._conn.commit()
+        # Intentionally not committing here — rows are batched and flushed
+        # by update_checkpoint() or an explicit flush() call.
 
     def log_summary(
         self,
@@ -328,14 +333,34 @@ class SQLiteLogger:
         self._conn.execute("DELETE FROM checkpoints WHERE checkpoint_key = ?", (key,))
         self._conn.commit()
 
+    def flush(self) -> None:
+        """Commit any buffered writes (e.g. batched row_logs) to disk."""
+        self._conn.commit()
+
     def close(self) -> None:
+        try:
+            self._conn.commit()  # flush any pending buffered writes
+        except sqlite3.Error:
+            pass  # best-effort; don't mask the original error
         self._conn.close()
 
     def __enter__(self) -> "SQLiteLogger":
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:  # type: ignore[override]
-        self.close()
+        try:
+            if exc_type is None:
+                self._conn.commit()
+            self._conn.close()
+        except sqlite3.Error:
+            # If already handling an exception, don't mask it.
+            # If no original exception, the sqlite error will propagate naturally.
+            try:
+                self._conn.close()
+            except sqlite3.Error:
+                pass
+            if exc_type is None:
+                raise
 
 
 def init_session_db_from_template(
@@ -357,6 +382,12 @@ def init_session_db_from_template(
     if source_template.exists():
         shutil.copy2(source_template, target_db)
     else:
+        import warnings
+        warnings.warn(
+            f"Session template DB not found at '{source_template}'. "
+            "Creating empty session database.",
+            stacklevel=2,
+        )
         target_db.touch()
 
     with SQLiteLogger(target_db, session_id=session_id) as logger:

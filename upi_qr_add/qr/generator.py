@@ -1,3 +1,5 @@
+"""QR code image generation with optional centered logo overlay."""
+
 from __future__ import annotations
 
 import warnings
@@ -6,7 +8,7 @@ from pathlib import Path
 import qrcode
 from PIL import Image
 
-from .utils import default_logo_path
+from ..utils.paths import default_logo_path
 
 
 def create_decorated_qr_image(

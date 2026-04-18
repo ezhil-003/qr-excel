@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upi-qr-add"
-version = "0.1.0"
+version = "0.1.1"
 description = "Interactive CLI tool for adding decorated UPI QR codes to Excel rows."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,7 +25,7 @@ dependencies = [
 dev = ["pytest>=8.2.0"]
 
 [project.scripts]
-upi-qr-add = "upi_qr_add.main:app"
+upi-qr-add = "upi_qr_add.cli.app:app"
 
 [tool.setuptools]
 package-dir = { "" = "." }
