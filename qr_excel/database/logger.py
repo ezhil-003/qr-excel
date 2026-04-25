@@ -20,12 +20,18 @@ class SQLiteLogger:
         *,
         session_id: str | None = None,
     ) -> None:
-        self.db_path = Path(db_path).expanduser().resolve()
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.db_path, timeout=10)
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA busy_timeout=5000")
-        self._conn.row_factory = sqlite3.Row
+        try:
+            self.db_path = Path(db_path).expanduser().resolve()
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._conn = sqlite3.connect(self.db_path, timeout=10)
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA busy_timeout=5000")
+            self._conn.row_factory = sqlite3.Row
+        except sqlite3.Error as e:
+            raise RuntimeError(f"Failed to connect to session database at {self.db_path}: {e}") from e
+        except OSError as e:
+            raise RuntimeError(f"Failed to create session directory for {self.db_path}: {e}") from e
+
         self._init_schema()
         self.session_id = self._ensure_session_state(session_id)
 
@@ -411,7 +417,9 @@ def _read_session_state(db_path: Path) -> sqlite3.Row | None:
                 "SELECT session_id, status, input_file, output_file, updated_at FROM session_state WHERE id = 1"
             ).fetchone()
             return row
-    except sqlite3.Error:
+    except sqlite3.Error as e:
+        import warnings
+        warnings.warn(f"Failed to read session state from {db_path}: {e}")
         return None
 
 

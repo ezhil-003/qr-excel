@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-26
+
+### Added
+- **Rebranding**: Project officially renamed to `qr-excel` (formerly `upi-qr-add`).
+- **Functional Boot UI**: The technical startup sequence now correctly displays progress for environment scan and module loading in the background.
+
+### Changed
+- **Major Refactor**: Structural overhaul of the package. Renamed the core package directory from `upi_qr_add` to `qr_excel`.
+- **Package Metadata**: Updated `pyproject.toml`, installers (`install.sh`, `install.ps1`), and CI/CD workflows to reflect the new naming.
+- **Resource Management**: Improved handling of temporary files during QR code generation using `tempfile`, preventing accumulation of orphaned image files.
+
+### Fixed
+- **Resource Leaks**: Resolved issue where temporary QR images were not being properly cleaned up in some failure modes.
+- **Test Regressions**: Updated the test suite to match the new package structure and fixed regressions caused by the rebranding.
+
 ## [0.2.3] - 2026-04-25
 
 ### Added

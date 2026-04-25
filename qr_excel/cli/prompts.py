@@ -22,7 +22,15 @@ def ask_input_path() -> Path:
             "[green]/Users/you/Documents/orders.xlsx[/green]",
         )
         raw_path = Prompt.ask("  [bold cyan]?[/] Path to input Excel file (.xlsx)").strip()
-        input_path = Path(raw_path).expanduser().resolve()
+        if not raw_path:
+            console.print("  [bold red][!] Path cannot be empty.[/]")
+            continue
+
+        try:
+            input_path = Path(raw_path).expanduser().resolve()
+        except RuntimeError:
+            # Fallback if home directory cannot be determined
+            input_path = Path(raw_path).resolve()
         if not input_path.exists():
             console.print("  [bold red][!] File does not exist. Please check the path and try again.[/]")
             continue
@@ -30,6 +38,19 @@ def ask_input_path() -> Path:
             console.print("  [bold red][!] Invalid format. Only .xlsx files are supported.[/]")
             continue
         return input_path
+
+
+def ask_amount_column_name() -> str:
+    while True:
+        render_instruction(
+            "Amount Column Header",
+            "Type the exact text of the Excel column header containing the payment amounts.",
+            "[green]Amount[/green] or [green]Balance_Amount[/green]",
+        )
+        col = Prompt.ask("  [bold cyan]?[/] Amount Column Header").strip()
+        if col:
+            return col
+        console.print("  [bold red][!] Header name cannot be empty.[/]")
 
 
 def ask_billing_mode() -> BillingMode:
@@ -51,11 +72,8 @@ def ask_custom_billing_details() -> tuple[str, str, str]:
     while True:
         col = Prompt.ask("  [bold cyan]?[/] Excel column name for VPA middle part").strip()
         if col:
-            vpa_middle_col = col
-            break
+            return vpa_prefix, vpa_suffix, col
         console.print("  [bold red][!] Column name cannot be empty.[/]")
-
-    return vpa_prefix, vpa_suffix, vpa_middle_col
 
 
 def ask_static_vpa() -> str:

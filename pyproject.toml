@@ -3,8 +3,8 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "upi-qr-add"
-version = "0.2.3"
+name = "qr-excel"
+version = "0.3.0"
 description = "Interactive CLI tool for adding decorated UPI QR codes to Excel rows."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -30,17 +30,17 @@ Changelog = "https://github.com/ezhil-003/qr-excel/blob/main/upi_qr_add/CHANGELO
 dev = ["pytest>=8.2.0"]
 
 [project.scripts]
-upi-qr-add = "upi_qr_add.cli.app:app"
+qr-excel = "qr_excel.cli.app:app"
 
 [tool.setuptools]
 package-dir = { "" = "." }
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["upi_qr_add*"]
+include = ["qr_excel*"]
 
 [tool.setuptools.package-data]
-upi_qr_add = ["assets/*.png", "assets/*.db"]
+qr_excel = ["assets/*.png", "assets/*.db"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

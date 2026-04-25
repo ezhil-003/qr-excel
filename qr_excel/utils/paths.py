@@ -12,20 +12,33 @@ import sys
 def get_base_path() -> Path:
     """Get the base path for assets, supporting PyInstaller's _MEIPASS."""
     if hasattr(sys, '_MEIPASS'):
-        return Path(sys._MEIPASS)
+        # In the bundled binary, assets are in _MEIPASS/qr_excel/assets
+        return Path(sys._MEIPASS) / "qr_excel"
     return Path(__file__).resolve().parent.parent
 
 
+def app_runtime_dir() -> Path:
+    return Path.home() / ".qr-excel"
+
+
+def app_assets_dir() -> Path:
+    return app_runtime_dir() / "assets"
+
+
 def default_logo_path() -> Path:
+    # Prioritize runtime assets directory (shipped via installer)
+    runtime_path = app_assets_dir() / "upi_logo.png"
+    if runtime_path.exists():
+        return runtime_path
     return get_base_path() / "assets" / "upi_logo.png"
 
 
 def template_db_path() -> Path:
+    # Prioritize runtime assets directory (shipped via installer)
+    runtime_path = app_assets_dir() / "upi_qr_template.db"
+    if runtime_path.exists():
+        return runtime_path
     return get_base_path() / "assets" / "upi_qr_template.db"
-
-
-def app_runtime_dir() -> Path:
-    return Path.home() / ".upi-qr-add"
 
 
 def app_sessions_dir() -> Path:
@@ -33,7 +46,7 @@ def app_sessions_dir() -> Path:
 
 
 def make_session_id() -> str:
-    now = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    now = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
     return f"{now}_{os.getpid()}"
 
 

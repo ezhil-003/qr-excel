@@ -9,15 +9,15 @@ from typer.testing import CliRunner
 from openpyxl import Workbook, load_workbook
 from PIL import Image
 
-import upi_qr_add.cli.app as app_module
-from upi_qr_add.core.models import BillingMode, ProcessConfig, ProcessSummary, QRMode
-from upi_qr_add.core.processor import process_workbook
-from upi_qr_add.database.logger import (
+import qr_excel.cli.app as app_module
+from qr_excel.core.models import BillingMode, ProcessConfig, ProcessSummary, QRMode
+from qr_excel.core.processor import process_workbook
+from qr_excel.database.logger import (
     SQLiteLogger,
     archive_or_delete_completed_sessions,
     init_session_db_from_template,
 )
-from upi_qr_add.qr.generator import create_decorated_qr_image
+from qr_excel.qr.generator import create_decorated_qr_image
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -172,7 +172,7 @@ def test_missing_amount_column_returns_setup_failed_and_logs(tmp_path: Path) -> 
     summary = process_workbook(input_file, config)
     assert summary.status == "setup_failed"
     assert summary.error_message is not None
-    assert "Missing required amount column" in summary.error_message
+    assert "Required amount column" in summary.error_message
 
     with SQLiteLogger(config.db_path) as logger:
         events = logger.get_session_events()
@@ -229,7 +229,7 @@ def test_second_row_header_and_first_sheet_only(tmp_path: Path) -> None:
     ws2.append([9999])
     wb.save(input_file)
 
-    config = make_static_config(tmp_path, db_path=tmp_path / "first_sheet.db")
+    config = make_static_config(tmp_path, amount_col_name="Balance_Amount(Rs)", db_path=tmp_path / "first_sheet.db")
 
     summary = process_workbook(input_file, config)
     assert summary.total_rows == 2
@@ -351,7 +351,7 @@ def test_session_db_lifecycle_helpers(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def test_error_viewer_prints_failed_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import upi_qr_add.cli.display as display_repo
+    import qr_excel.cli.display as display_repo
     db_path = tmp_path / "session_errors.db"
     with SQLiteLogger(db_path, session_id="s1") as logger:
         logger.log_step(
@@ -383,6 +383,7 @@ def test_main_menu_loop_runs_and_quits(monkeypatch: pytest.MonkeyPatch, tmp_path
         status="completed", session_id="session_test", error_message=None,
     )
 
+    app_module.load_modules()
     monkeypatch.setattr(app_module, "choose_main_menu", lambda: next(choices))
     monkeypatch.setattr(app_module, "_run_single_session", lambda: (fake_summary_db, fake_summary))
     monkeypatch.setattr(app_module, "render_title", lambda x: None)

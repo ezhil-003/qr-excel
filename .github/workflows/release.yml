@@ -13,14 +13,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: upi-qr-add
-            asset_name: upi-qr-add-linux-amd64
+            artifact_name: qr-excel
+            asset_name: qr-excel-linux-amd64
           - os: macos-latest
-            artifact_name: upi-qr-add
-            asset_name: upi-qr-add-macos-universal
+            artifact_name: qr-excel
+            asset_name: qr-excel-macos-universal
           - os: windows-latest
-            artifact_name: upi-qr-add.exe
-            asset_name: upi-qr-add-windows-amd64.exe
+            artifact_name: qr-excel.exe
+            asset_name: qr-excel-windows-amd64.exe
 
     steps:
       - name: Checkout repository
@@ -38,7 +38,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build with PyInstaller
-        run: pyinstaller upi-qr-add.spec
+        run: pyinstaller qr-excel.spec
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -65,13 +65,13 @@ jobs:
         run: |
           mkdir -p release_assets
           # Move and rename downloaded artifacts
-          mv artifacts/upi-qr-add-linux-amd64/upi-qr-add release_assets/upi-qr-add-linux-amd64
-          mv artifacts/upi-qr-add-macos-universal/upi-qr-add release_assets/upi-qr-add-macos-universal
-          mv artifacts/upi-qr-add-windows-amd64.exe/upi-qr-add.exe release_assets/upi-qr-add-windows-amd64.exe
+          mv artifacts/qr-excel-linux-amd64/qr-excel release_assets/qr-excel-linux-amd64
+          mv artifacts/qr-excel-macos-universal/qr-excel release_assets/qr-excel-macos-universal
+          mv artifacts/qr-excel-windows-amd64.exe/qr-excel.exe release_assets/qr-excel-windows-amd64.exe
           
           # Make linux/macos binaries executable
-          chmod +x release_assets/upi-qr-add-linux-amd64
-          chmod +x release_assets/upi-qr-add-macos-universal
+          chmod +x release_assets/qr-excel-linux-amd64
+          chmod +x release_assets/qr-excel-macos-universal
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2

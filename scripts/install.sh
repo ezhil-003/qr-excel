@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 REPO="ezhil-003/qr-excel"
-BIN_NAME="upi-qr-add"
+BIN_NAME="qr-excel"
 INSTALL_DIR="/usr/local/bin"
 
 # Detect OS
@@ -58,6 +58,13 @@ if [ -w "$INSTALL_DIR" ]; then
 else
     sudo mv "${TMP_DIR}/${BIN_NAME}" "$INSTALL_DIR"
 fi
+
+# Ship assets to runtime directory
+ASSETS_DIR="$HOME/.qr-excel/assets"
+echo "Shipping assets to $ASSETS_DIR..."
+mkdir -p "$ASSETS_DIR"
+curl -sL "https://raw.githubusercontent.com/${REPO}/main/qr_excel/assets/upi_logo.png" -o "${ASSETS_DIR}/upi_logo.png"
+curl -sL "https://raw.githubusercontent.com/${REPO}/main/qr_excel/assets/upi_qr_template.db" -o "${ASSETS_DIR}/upi_qr_template.db"
 
 echo "Successfully installed ${BIN_NAME}!"
 echo "Run '${BIN_NAME} --help' to get started."

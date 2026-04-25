@@ -9,31 +9,37 @@ from pathlib import Path
 
 import typer
 
-# Support local execution fallback
-if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-    from upi_qr_add.core.models import ProcessConfig, ProcessSummary, BillingMode
-    from upi_qr_add.core.exceptions import UPIQRError
-    from upi_qr_add.core.processor import process_workbook
-    from upi_qr_add.database.logger import archive_or_delete_completed_sessions, find_latest_session_db, find_resumable_session_for_input, init_session_db_from_template
-    from upi_qr_add.utils.paths import make_session_id
-    from upi_qr_add import __version__
-else:
-    from ..core.models import ProcessConfig, ProcessSummary, BillingMode
-    from ..core.exceptions import UPIQRError
-    from ..core.processor import process_workbook
-    from ..database.logger import archive_or_delete_completed_sessions, find_latest_session_db, find_resumable_session_for_input, init_session_db_from_template
-    from ..utils.paths import make_session_id
-    from .. import __version__
+# Note: Core imports moved to load_modules() for fast UI boot
 
 from .prompts import (
-    ask_input_path, ask_billing_mode, ask_custom_billing_details, 
+    ask_input_path, ask_amount_column_name, ask_billing_mode, ask_custom_billing_details, 
     ask_static_vpa, ask_static_payee_name, ask_note, ask_qr_mode, choose_main_menu
 )
 from .display import console, show_error, render_title, print_summary, show_last_run_errors, print_raw, render_boot_sequence
 
 app = typer.Typer(add_completion=False, no_args_is_help=False)
 
+def load_modules():
+    global ProcessConfig, ProcessSummary, BillingMode, UPIQRError, process_workbook
+    global archive_or_delete_completed_sessions, find_latest_session_db, find_resumable_session_for_input, init_session_db_from_template
+    global make_session_id, __version__
+    
+    if __package__ in (None, ""):
+        if str(Path(__file__).resolve().parent.parent.parent) not in sys.path:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+        from qr_excel.core.models import ProcessConfig, ProcessSummary, BillingMode
+        from qr_excel.core.exceptions import UPIQRError
+        from qr_excel.core.processor import process_workbook
+        from qr_excel.database.logger import archive_or_delete_completed_sessions, find_latest_session_db, find_resumable_session_for_input, init_session_db_from_template
+        from qr_excel.utils.paths import make_session_id
+        from qr_excel import __version__
+    else:
+        from ..core.models import ProcessConfig, ProcessSummary, BillingMode
+        from ..core.exceptions import UPIQRError
+        from ..core.processor import process_workbook
+        from ..database.logger import archive_or_delete_completed_sessions, find_latest_session_db, find_resumable_session_for_input, init_session_db_from_template
+        from ..utils.paths import make_session_id
+        from .. import __version__
 
 def _resolve_session_db(input_path: Path) -> tuple[Path, bool]:
     resumable = find_resumable_session_for_input(input_path)
@@ -45,6 +51,7 @@ def _resolve_session_db(input_path: Path) -> tuple[Path, bool]:
 
 def _run_single_session() -> tuple[Path, ProcessSummary]:
     input_path = ask_input_path()
+    amount_col_name = ask_amount_column_name()
     billing_mode = ask_billing_mode()
 
     vpa_prefix = vpa_suffix = vpa_middle_col = ""
@@ -63,11 +70,12 @@ def _run_single_session() -> tuple[Path, ProcessSummary]:
     if resumed:
         print_raw(f"\n  [~] Resuming interrupted session from: {session_db}\n")
 
-    logo_path_env = os.getenv("UPI_QR_LOGO_PATH", "").strip()
+    logo_path_env = os.getenv("QR_EXCEL_LOGO_PATH", "").strip()
     logo_path = Path(logo_path_env).expanduser() if logo_path_env else None
 
     config = ProcessConfig(
         billing_mode=billing_mode,
+        amount_col_name=amount_col_name,
         vpa=vpa,
         payee_name=payee_name,
         vpa_prefix=vpa_prefix,
@@ -84,7 +92,7 @@ def _run_single_session() -> tuple[Path, ProcessSummary]:
 
 
 def _run_interactive() -> None:
-    render_boot_sequence()
+    render_boot_sequence(load_func=load_modules)
     render_title(__version__)
     last_session_db: Path | None = find_latest_session_db()
 

@@ -11,6 +11,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 import time
+import threading
 
 from .ascii_ui import ASCII_LOGO, BOOT_STEPS
 from ..core.models import ProcessSummary
@@ -25,8 +26,8 @@ def show_error(message: str) -> None:
 def print_raw(msg: str) -> None:
     console.print(msg)
 
-def render_boot_sequence() -> None:
-    """Renders a fancy, technical-themed system boot sequence."""
+def render_boot_sequence(load_func=None) -> None:
+    """Renders a fancy, technical-themed system boot sequence, functioning as a real loader."""
     console.print("\n")
     
     with Progress(
@@ -39,11 +40,28 @@ def render_boot_sequence() -> None:
     ) as progress:
         boot_task = progress.add_task("[bold white]CORE SYSTEM BOOTING...", total=100)
         
-        for p, msg in BOOT_STEPS:
-            time.sleep(0.4)
+        if load_func:
+            t = threading.Thread(target=load_func, daemon=True)
+            t.start()
+            
+            step_idx = 0
+            while t.is_alive():
+                if step_idx < len(BOOT_STEPS) - 1:
+                    p, msg = BOOT_STEPS[step_idx]
+                    progress.update(boot_task, completed=p, description=msg)
+                    step_idx += 1
+                time.sleep(0.15)
+            t.join()
+            
+            # Show final step
+            p, msg = BOOT_STEPS[-1]
             progress.update(boot_task, completed=p, description=msg)
-        
-        time.sleep(0.3)
+            time.sleep(0.2)
+        else:
+            for p, msg in BOOT_STEPS:
+                time.sleep(0.05)
+                progress.update(boot_task, completed=p, description=msg)
+            time.sleep(0.1)
     
     console.print("\n")
 
@@ -62,7 +80,7 @@ def render_title(version: str) -> None:
         box=box.DOUBLE,
         border_style="blue",
         padding=(0, 2),
-        title="[bold white]UPI QR CLI[/]",
+        title="[bold white]QR Excel CLI[/]",
         subtitle=f"[bold white]v{version} Engine Ready[/]",
         width=110
     )

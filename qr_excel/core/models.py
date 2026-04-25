@@ -25,6 +25,7 @@ class ProcessConfig:
     logo_path: Path | None = None
     db_path: Path = Path("upi_qr_log.db")
     billing_mode: BillingMode = BillingMode.CUSTOM
+    amount_col_name: str = "Amount"
 
     # --- Static billing (single merchant) ---
     vpa: str = ""
@@ -36,6 +37,8 @@ class ProcessConfig:
     vpa_middle_col_name: str = ""
 
     def __post_init__(self) -> None:
+        if not self.amount_col_name:
+            raise ValueError("Amount column header name cannot be empty.")
         if self.billing_mode == BillingMode.STATIC and not self.vpa:
             raise ValueError("Static billing mode requires a non-empty VPA.")
         if self.billing_mode == BillingMode.CUSTOM and not self.vpa_middle_col_name:

@@ -1,7 +1,7 @@
-# CLAUDE.md - upi-qr-add Context
+# CLAUDE.md - qr-excel Context
 
 ## Project Overview
-`upi-qr-add` is an interactive CLI tool designed to batch-process Excel files and add decorated UPI QR codes to each row. It supports embedding images directly in cells and provides robust session management with SQLite-based checkpointing and error logging.
+`qr-excel` is an interactive CLI tool designed to batch-process Excel files and add decorated UPI QR codes to each row. It supports embedding images directly in cells and provides robust session management with SQLite-based checkpointing and error logging.
 
 ## Core Technology Stack
 - **CLI Framework**: `typer` for command layout.
@@ -24,10 +24,10 @@ pip install -r requirements.txt
 ### Execution
 ```bash
 # Run the interactive CLI
-upi-qr-add
+qr-excel
 
 # Alternative execution
-python -m upi_qr_add.main
+python run.py
 ```
 
 ### Testing
@@ -40,12 +40,16 @@ pytest -s
 ```
 
 ## Project Structure
-- `upi_qr_add/`: Main package directory.
-  - `main.py`: CLI entry point, menu logic, and Typer app definition.
-  - `core.py`: Excel processing orchestration and row iteration.
-  - `qr_generator.py`: Specific logic for UPI deep links and Pillow-based QR styling.
-  - `logger.py`: SQLite session database management and rich logging.
-  - `utils.py`: Path manipulation and miscellaneous helpers.
+- `qr_excel/`: Main package directory.
+  - `cli/`: CLI application logic and UI components.
+    - `app.py`: Main Typer application and menu orchestration.
+    - `ascii_ui.py`: Custom ASCII rendering logic.
+  - `core/`: Business logic and models.
+    - `processor.py`: Excel processing orchestration.
+    - `models.py`: Data models and validation.
+  - `excel/`: Spreadsheet operations and parsing.
+  - `qr/`: QR code generation and styling.
+  - `utils/`: Path manipulation and miscellaneous helpers.
   - `assets/`: Static icons and SQLite template.
 - `tests/`: Pytest suite.
 - `requirements.txt`: Flat list of dependencies with versions.
@@ -53,9 +57,9 @@ pytest -s
 
 ## Coding Style & Guidelines
 - **Type Hints**: Use type hints for all functions (`def func(a: int) -> str:`).
-- **Error Handling**: Wrap processing loops in try-except; log detailed errors to the session DB via `logger.py`.
-- **UI Consistency**: The application relies on custom ASCII UI styles (Dot-Highlighter menus, ASCII summary text) with minimal `rich` support for legacy error printing. Avoid full-blown `rich` Panel/Table layouts for standard summaries for an aesthetic ASCII feel.
-- **Domain Logic**: Account for both **Static VPA** and **Custom Billing** modes (dynamic VPA construction per row) in `core.py` and `main.py`. Always prompt for specific variables when in Custom Billing mode (prefix, suffix, column).
+- **Error Handling**: Wrap processing loops in try-except; log detailed errors to the session DB via the logging module.
+- **UI Consistency**: The application relies on custom ASCII UI styles (Dot-Highlighter menus, ASCII summary text). Avoid full-blown `rich` Panel/Table layouts for standard summaries for an aesthetic ASCII feel.
+- **Domain Logic**: Account for both **Static VPA** and **Custom Billing** modes (dynamic VPA construction per row).
 - **Concurrency**: The tool is primarily single-threaded to ensure `openpyxl` stability during image embedding.
-- **Assets**: Always refer to assets using absolute paths derived in `utils.py` or `main.py` to ensure package portability.
+- **Assets**: Always refer to assets using absolute paths derived in `utils/paths.py` to ensure package portability.
 - **Interruption**: Gracefully handle `SIGINT` (Ctrl+C) via Typer/prompt_toolkit to ensure the session DB is closed and user progress can be resumed.

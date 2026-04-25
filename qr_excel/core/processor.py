@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 from zipfile import BadZipFile
+import tempfile
 
 from openpyxl import load_workbook
+from openpyxl.workbook.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.exceptions import InvalidFileException
 from tqdm import tqdm
 
@@ -18,26 +21,22 @@ from ..database.logger import SQLiteLogger
 from ..qr.generator import create_decorated_qr_image
 from ..utils.paths import output_excel_path, checkpoint_key
 from ..utils.upi import build_upi_deep_link
-from ..excel.parsers import detect_amount_header, find_header_index, parse_amount
+from ..excel.parsers import find_header_index, parse_amount
 from ..excel.operations import setup_qr_column, embed_qr_image, add_qr_hyperlink
 
 from .exceptions import ExcelProcessingError, ConfigurationError, InvalidAmountError
 from .models import ProcessConfig, ProcessSummary, QRMode, BillingMode
 
 
-def _cleanup_temp_files(temp_files: list[Path], temp_dir: Path) -> None:
+def _cleanup_temp_files(temp_files: list[Path]) -> None:
     for file in temp_files:
         try:
             file.unlink(missing_ok=True)
         except OSError:
             continue
-    try:
-        temp_dir.rmdir()
-    except OSError:
-        pass
 
 
-def _prepare_workbook(input_path: Path, output_path: Path) -> tuple[Any, Any, bool]:
+def _prepare_workbook(input_path: Path, output_path: Path) -> tuple[Workbook, Worksheet, bool]:
     if not input_path.exists():
         raise FileNotFoundError(f"Input file not found: {input_path}")
     if input_path.suffix.lower() != ".xlsx":
@@ -58,12 +57,19 @@ def _prepare_workbook(input_path: Path, output_path: Path) -> tuple[Any, Any, bo
     
     return wb, wb.worksheets[0], copied_fresh
 
+def _resolve_headers(ws: Worksheet, config: ProcessConfig) -> tuple[int, int, int | None, int, str]:
+    # Scan first 10 rows for the amount header provided by user
+    amount_col = None
+    header_row = 1
+    for r in range(1, 11):
+        found_col = find_header_index(ws, config.amount_col_name, row=r)
+        if found_col is not None:
+            amount_col = found_col
+            header_row = r
+            break
 
-def _resolve_headers(ws: Any, config: ProcessConfig) -> tuple[int, int, int | None, int, str]:
-    amount_header = detect_amount_header(ws)
-    if amount_header is None:
-        raise ExcelProcessingError('Missing required amount column. Expected header like "Amount" within first 25 rows.')
-    header_row, amount_col, _ = amount_header
+    if amount_col is None:
+        raise ExcelProcessingError(f'Required amount column "{config.amount_col_name}" not found in the first 10 rows.')
 
     vpa_middle_col: int | None = None
     if config.billing_mode == BillingMode.CUSTOM:
@@ -87,7 +93,7 @@ def _resolve_headers(ws: Any, config: ProcessConfig) -> tuple[int, int, int | No
 
 def _process_single_row(
     row_idx: int,
-    ws: Any,
+    ws: Worksheet,
     config: ProcessConfig,
     amount_col: int,
     vpa_middle_col: int | None,
@@ -185,47 +191,81 @@ def process_workbook(
             total_rows = max(ws.max_row - header_row, 0)
 
             if config.mode == QRMode.EMBED:
-                temp_dir.mkdir(parents=True, exist_ok=True)
+                with tempfile.TemporaryDirectory(dir=output_path.parent, prefix=f".{output_path.stem}_tmp_qr_") as td:
+                    temp_dir = Path(td)
+                    
+                    rows_to_process = list(range(start_row, ws.max_row + 1))
+                    progress = tqdm(rows_to_process, total=len(rows_to_process), desc="Processing rows", unit="row")
+
+                    try:
+                        for row_idx in progress:
+                            try:
+                                _process_single_row(
+                                    row_idx, ws, config, amount_col, vpa_middle_col, qr_col, qr_col_letter,
+                                    logger, temp_dir, hyper_dir, temp_files
+                                )
+                                logger.update_checkpoint(run_key, row_idx)
+                                successful += 1
+
+                                if stop_after_rows is not None and successful >= stop_after_rows:
+                                    raise KeyboardInterrupt("Simulated interruption for testing.")
+                            except InvalidAmountError:
+                                skipped += 1
+                            except KeyboardInterrupt:
+                                raise
+                            except Exception as exc:
+                                failed += 1
+                                logger.log_step(
+                                    row_index=row_idx, amount=None, txn_id=None, step="process_row", status="failed",
+                                    error_type=type(exc).__name__, error_message=str(exc)
+                                )
+                    except KeyboardInterrupt:
+                        interrupted = True
+                        logger.log_session_event(step="processing_interrupted", status="failed", error_message="Execution interrupted.")
+                    finally:
+                        progress.close()
+
+                    if wb is not None:
+                        wb.save(output_path)
+                        wb.close()
+                        wb = None
             else:
                 hyper_dir.mkdir(parents=True, exist_ok=True)
+                rows_to_process = list(range(start_row, ws.max_row + 1))
+                progress = tqdm(rows_to_process, total=len(rows_to_process), desc="Processing rows", unit="row")
 
-            rows_to_process = list(range(start_row, ws.max_row + 1))
-            progress = tqdm(rows_to_process, total=len(rows_to_process), desc="Processing rows", unit="row")
+                try:
+                    for row_idx in progress:
+                        try:
+                            _process_single_row(
+                                row_idx, ws, config, amount_col, vpa_middle_col, qr_col, qr_col_letter,
+                                logger, temp_dir, hyper_dir, temp_files
+                            )
+                            logger.update_checkpoint(run_key, row_idx)
+                            successful += 1
 
-            try:
-                for row_idx in progress:
-                    try:
-                        _process_single_row(
-                            row_idx, ws, config, amount_col, vpa_middle_col, qr_col, qr_col_letter,
-                            logger, temp_dir, hyper_dir, temp_files
-                        )
-                        logger.update_checkpoint(run_key, row_idx)
-                        successful += 1
+                            if stop_after_rows is not None and successful >= stop_after_rows:
+                                raise KeyboardInterrupt("Simulated interruption for testing.")
+                        except InvalidAmountError:
+                            skipped += 1
+                        except KeyboardInterrupt:
+                            raise
+                        except Exception as exc:
+                            failed += 1
+                            logger.log_step(
+                                row_index=row_idx, amount=None, txn_id=None, step="process_row", status="failed",
+                                error_type=type(exc).__name__, error_message=str(exc)
+                            )
+                except KeyboardInterrupt:
+                    interrupted = True
+                    logger.log_session_event(step="processing_interrupted", status="failed", error_message="Execution interrupted.")
+                finally:
+                    progress.close()
 
-                        if stop_after_rows is not None and successful >= stop_after_rows:
-                            raise KeyboardInterrupt("Simulated interruption for testing.")
-                    except InvalidAmountError:
-                        skipped += 1
-                    except KeyboardInterrupt:
-                        raise
-                    except Exception as exc:
-                        failed += 1
-                        logger.log_step(
-                            row_index=row_idx, amount=None, txn_id=None, step="process_row", status="failed",
-                            error_type=type(exc).__name__, error_message=str(exc)
-                        )
-            except KeyboardInterrupt:
-                interrupted = True
-                logger.log_session_event(step="processing_interrupted", status="failed", error_message="Execution interrupted.")
-            finally:
-                progress.close()
-
-            if wb is not None:
-                wb.save(output_path)
-                wb.close()
-                wb = None
-            if config.mode == QRMode.EMBED:
-                _cleanup_temp_files(temp_files, temp_dir)
+                if wb is not None:
+                    wb.save(output_path)
+                    wb.close()
+                    wb = None
 
             status = "interrupted" if interrupted else ("completed_with_errors" if failed + skipped > 0 else "completed")
             logger.set_session_state(status=status, input_file=input_path, output_file=output_path)

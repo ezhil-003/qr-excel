@@ -1,6 +1,6 @@
-# upi-qr-add
+# qr-excel
 
-`upi-qr-add` is an interactive Python CLI to add dynamic UPI payment QR codes into Excel files for large row counts (2000+).
+`qr-excel` is an interactive Python CLI to add dynamic UPI payment QR codes into Excel files for large row counts (2000+).
 
 ## Features
 
@@ -27,17 +27,17 @@ The fastest way to install the latest standalone binary:
 curl -sL https://raw.githubusercontent.com/ezhil-003/qr-excel/main/scripts/install.sh | bash
 ```
 
+### One-Line Install (Windows)
+The fastest way to install the latest standalone binary on Windows via PowerShell:
+```powershell
+irm https://raw.githubusercontent.com/ezhil-003/qr-excel/main/scripts/install.ps1 | iex
+```
+
 ### Manual Binary Download
 Download the standalone executable for your platform from the [GitHub Releases](https://github.com/ezhil-003/qr-excel/releases) page. No Python installation required!
 
 ### Developer / Python Install
-If you prefer to run it via Python:
-
-#### Windows (via Winget)
-If you need Python, install it first using winget:
-```bash
-winget install Python.Python.3.12
-```
+If you prefer to run it via Python from source:
 
 #### From Project Root (macOS / Linux / Windows)
 ```bash
@@ -46,12 +46,12 @@ pip install -e .
 
 Then run:
 ```bash
-upi-qr-add
+qr-excel
 ```
 
 ## Interactive Flow
 
-When you run `upi-qr-add`, use the arrow-key menu:
+When you run `qr-excel`, use the arrow-key menu:
 
 1. `Start New Run`
 2. `View Last Run Errors`
@@ -86,9 +86,9 @@ During processing, an interactive Dot-Highlighter ASCII menu displays progress. 
 ## Runtime Session DB
 
 - A template DB ships with the package at:
-  `upi_qr_add/assets/upi_qr_template.db`
+  `qr_excel/assets/upi_qr_template.db`
 - Runtime DB files are created per session under:
-  `~/.upi-qr-add/sessions/session_<timestamp_pid>.db`
+  `~/.qr-excel/sessions/session_<timestamp_pid>.db`
 - Completed session DBs are cleared automatically when starting a new run.
 
 ## Environment Variables
@@ -101,7 +101,7 @@ Optional settings are listed in `.env.example`:
 
 Default logo path used by the package:
 
-`upi_qr_add/assets/upi_logo.png`
+`qr_excel/assets/upi_logo.png`
 
 Replace this file with your official UPI logo anytime, or use `UPI_QR_LOGO_PATH`.
 

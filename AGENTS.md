@@ -1,6 +1,6 @@
 # AGENTS
 
-This repository provides a command‑line tool **upi‑qr‑add** that helps you generate and embed decorated UPI QR codes into Excel spreadsheets.
+This repository provides a command‑line tool **qr-excel** that helps you generate and embed decorated UPI QR codes into Excel spreadsheets.
 
 ## Primary Agent
 
