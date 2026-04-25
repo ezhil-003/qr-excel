@@ -73,7 +73,12 @@ def _resolve_headers(ws: Any, config: ProcessConfig) -> tuple[int, int, int | No
 
     qr_col = find_header_index(ws, "payment_qr", row=header_row)
     if qr_col is None:
-        qr_col = ws.max_column + 1
+        # Find the last non-empty column in the header row to determine where to add QR
+        last_data_col = 0
+        for col in range(1, ws.max_column + 1):
+            if ws.cell(row=header_row, column=col).value is not None:
+                last_data_col = col
+        qr_col = last_data_col + 1
     
     qr_col_letter = setup_qr_column(ws, qr_col, header_row=header_row)
 

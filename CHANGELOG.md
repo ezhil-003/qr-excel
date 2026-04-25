@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-04-18
 
+### Fixed
+- Adjusted QR code image anchoring to correctly align within the target column (prevent overlapping data).
+
 ### Added
 - **Multi-Platform Binary Support**: Standalone executables for Linux (amd64), macOS (Universal), and Windows (amd64) via PyInstaller.
 - **Automated Releases**: GitHub Actions workflow to auto-build and upload binaries to GitHub Releases on tag push.
