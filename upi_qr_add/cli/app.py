@@ -30,7 +30,7 @@ from .prompts import (
     ask_input_path, ask_billing_mode, ask_custom_billing_details, 
     ask_static_vpa, ask_static_payee_name, ask_note, ask_qr_mode, choose_main_menu
 )
-from .display import console, show_error, render_title, print_summary, show_last_run_errors, print_raw
+from .display import console, show_error, render_title, print_summary, show_last_run_errors, print_raw, render_boot_sequence
 
 app = typer.Typer(add_completion=False, no_args_is_help=False)
 
@@ -84,6 +84,7 @@ def _run_single_session() -> tuple[Path, ProcessSummary]:
 
 
 def _run_interactive() -> None:
+    render_boot_sequence()
     render_title(__version__)
     last_session_db: Path | None = find_latest_session_db()
 

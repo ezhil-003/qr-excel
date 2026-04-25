@@ -9,8 +9,10 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+import time
 
-from .ascii_ui import ASCII_LOGO
+from .ascii_ui import ASCII_LOGO, BOOT_STEPS
 from ..core.models import ProcessSummary
 from ..database.logger import SQLiteLogger, find_latest_session_db
 
@@ -22,6 +24,28 @@ def show_error(message: str) -> None:
 
 def print_raw(msg: str) -> None:
     console.print(msg)
+
+def render_boot_sequence() -> None:
+    """Renders a fancy, technical-themed system boot sequence."""
+    console.print("\n")
+    
+    with Progress(
+        SpinnerColumn(spinner_name="dots12", style="bold cyan"),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=40, style="blue", complete_style="bold cyan"),
+        TaskProgressColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        boot_task = progress.add_task("[bold white]CORE SYSTEM BOOTING...", total=100)
+        
+        for p, msg in BOOT_STEPS:
+            time.sleep(0.4)
+            progress.update(boot_task, completed=p, description=msg)
+        
+        time.sleep(0.3)
+    
+    console.print("\n")
 
 def render_title(version: str) -> None:
     console.print("\n")
@@ -40,7 +64,7 @@ def render_title(version: str) -> None:
         padding=(0, 2),
         title="[bold white]UPI QR CLI[/]",
         subtitle=f"[bold white]v{version} Engine Ready[/]",
-        width=100
+        width=110
     )
     console.print(panel)
 
